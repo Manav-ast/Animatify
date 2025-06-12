@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, type ChangeEvent } from 'react';
@@ -9,6 +10,7 @@ import { CodeDisplay } from "./CodeDisplay";
 import { AnimationPreview } from "./AnimationPreview";
 import { generateManimCode, type GenerateManimCodeInput } from '@/ai/flows/generate-manim-code';
 import { addComments, type AddCommentsInput } from '@/ai/flows/add-comments-to-code';
+import { generateImagePreview, type GenerateImagePreviewInput } from '@/ai/flows/generate-image-preview-flow';
 import { useToast } from "@/hooks/use-toast";
 import { Download, Sparkles, Play, Loader2, AlertCircle } from 'lucide-react';
 import type { ChangeEventFC } from '@/types/ui';
@@ -18,6 +20,7 @@ export function AnimatifyLayout() {
   const [prompt, setPrompt] = useState<string>("");
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
   const [commentedCode, setCommentedCode] = useState<string | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,12 +44,13 @@ export function AnimatifyLayout() {
     setError(null);
     setGeneratedCode(null);
     setCommentedCode(null);
+    setImagePreviewUrl(null);
 
     try {
+      // Generate Manim Code
       const manimInput: GenerateManimCodeInput = { prompt };
       const manimOutput = await generateManimCode(manimInput);
       setGeneratedCode(manimOutput.code);
-
       toast({
         title: "Code Generated!",
         description: "Manim code has been successfully generated.",
@@ -61,12 +65,30 @@ export function AnimatifyLayout() {
         description: "Code has been commented.",
       });
 
+      // Generate Image Preview
+      try {
+        toast({ title: "Generating Image Preview...", description: "Please wait a moment."});
+        const imageInput: GenerateImagePreviewInput = { prompt };
+        const imageOutput = await generateImagePreview(imageInput);
+        setImagePreviewUrl(imageOutput.imageDataUri);
+        toast({ title: "Image Preview Generated!", description: "Conceptual preview is ready." });
+      } catch (imgErr: any) {
+        console.error("Error generating image preview:", imgErr);
+        setError(prevError => prevError ? prevError + "\nImage preview generation failed." : "Image preview generation failed.");
+        toast({
+          title: "Image Preview Failed",
+          description: imgErr.message || "Could not generate image preview.",
+          variant: "destructive",
+        });
+      }
+
     } catch (e: any) {
       console.error("Error generating animation:", e);
-      setError(e.message || "An unexpected error occurred while generating the animation.");
+      const errorMessage = e.message || "An unexpected error occurred while generating the animation.";
+      setError(errorMessage);
       toast({
         title: "Generation Failed",
-        description: e.message || "Could not generate animation.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -139,7 +161,7 @@ export function AnimatifyLayout() {
               Generate Animation
             </Button>
             {error && (
-              <p className="text-sm text-destructive flex items-center gap-1"><AlertCircle size={16}/> {error}</p>
+              <p className="text-sm text-destructive flex items-center gap-1 whitespace-pre-line"><AlertCircle size={16}/> {error}</p>
             )}
           </CardContent>
         </Card>
@@ -171,10 +193,10 @@ export function AnimatifyLayout() {
         <Card className="shadow-lg flex-1 flex flex-col">
           <CardHeader>
             <CardTitle className="font-headline text-2xl">Animation Preview</CardTitle>
-            <CardDescription>Watch a preview of your generated animation.</CardDescription>
+            <CardDescription>A conceptual image preview of your animation idea.</CardDescription>
           </CardHeader>
           <CardContent className="flex-1 flex items-center justify-center p-2 md:p-6 bg-card">
-             <AnimationPreview isLoading={isLoading} hasGeneratedCode={!!(commentedCode || generatedCode)} />
+             <AnimationPreview isLoadingOverall={isLoading} imagePreviewUrl={imagePreviewUrl} />
           </CardContent>
           <CardFooter className="flex flex-col sm:flex-row gap-2 sm:gap-4 justify-center">
             <Tooltip>
@@ -182,10 +204,10 @@ export function AnimatifyLayout() {
                 <Button variant="secondary" className="w-full sm:w-auto" disabled>
                   <Play className="mr-2 h-4 w-4" />
                   Play Animation (Mock)
-                </Button>
-              </TooltipTrigger>
+                </Button
+              ></TooltipTrigger>
               <TooltipContent>
-                <p>This feature is for demonstration only.</p>
+                <p>Full animation rendering requires local Manim setup.</p>
               </TooltipContent>
             </Tooltip>
             <Tooltip>
